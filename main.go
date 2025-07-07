@@ -5,24 +5,29 @@ import(
 	"net/http"
 	// "github.com/gorilla/mux"
 	"github.com/julienschmidt/httprouter"
-	"html/template"
+	// "html/template"
+	"lenslocked.com/helper/views"
 )
 
-var homeTemplate *template.Template
+var homeView *views.View
+var contactView *views.View
+
 
 func home(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
 	res.Header().Set("Content-Type","text/html")
 	// fmt.Fprint(res,"<h1>Welcome to my awesome site!</h1>")
-	if err := homeTemplate.Execute(res,nil); err != nil {
+	err := homeView.Template.ExecuteTemplate(res,homeView.Layout,nil)
+	if err != nil {
 		panic(err)
 	}
 }
 
 func contact(res http.ResponseWriter,req *http.Request, _ httprouter.Params){
 	res.Header().Set("Content-Type","text/html")
-	fmt.Fprint(res,"To get in touch, please send an email"+
-	"to <a href=\"mailto:support@lenslocked.com\">"+
-	"support@lenslocked.com</a>",)
+	err := contactView.Template.ExecuteTemplate(res,contactView.Layout,nil)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func faq(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
@@ -46,11 +51,24 @@ func main(){
 
 	// var h http.Handler = http.HandlerFunc(pageNotFound)
 	// r.NotFoundHandler = h
-	var err error
-	homeTemplate, err = template.ParseFiles("views/home.gohtml")
-	if err != nil {
-		panic(err)
-	}
+	// var err error
+	homeView = views.NewView("bootstrap","views/home.gohtml")
+	contactView = views.NewView("bootstrap","views/contact.gohtml")
+	// homeView, err = template.ParseFiles(
+	// 	"views/home.gohtml",
+	// 	"views/layouts/footer.gohtml",
+	// )
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//
+	// contactView, err = template.ParseFiles(
+	// 	"views/contact.gohtml",
+	// 	"views/layouts/footer.gohtml",
+	// )
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	router := httprouter.New()
 	router.GET("/",home)
