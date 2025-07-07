@@ -6,7 +6,7 @@ import(
 	// "github.com/gorilla/mux"
 	"github.com/julienschmidt/httprouter"
 	// "html/template"
-	"lenslocked.com/helper/views"
+	"lenslocked.com/views"
 )
 
 var homeView *views.View
@@ -15,19 +15,12 @@ var contactView *views.View
 
 func home(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
 	res.Header().Set("Content-Type","text/html")
-	// fmt.Fprint(res,"<h1>Welcome to my awesome site!</h1>")
-	err := homeView.Template.ExecuteTemplate(res,homeView.Layout,nil)
-	if err != nil {
-		panic(err)
-	}
+	errorHandle(homeView.Render(res,nil))
 }
 
 func contact(res http.ResponseWriter,req *http.Request, _ httprouter.Params){
 	res.Header().Set("Content-Type","text/html")
-	err := contactView.Template.ExecuteTemplate(res,contactView.Layout,nil)
-	if err != nil {
-		panic(err)
-	}
+	errorHandle(contactView.Render(res,nil))
 }
 
 func faq(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
@@ -41,6 +34,13 @@ func pageNotFound(res http.ResponseWriter,req *http.Request,_ httprouter.Params)
 	"were looking for:(</h1>"+
 	"<p>Please email us if you keep being sent to an</p>"+
 	"invalid page.</p>")
+}
+
+
+func errorHandle(err error){
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main(){
