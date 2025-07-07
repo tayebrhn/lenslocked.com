@@ -1,7 +1,7 @@
 package views
 
 import (
-  "fmt"
+  // "fmt"
   "net/http"
   "html/template"
   "path/filepath"
@@ -20,7 +20,7 @@ func layoutFiles() [] string {
   // }
   // LayoutDir := filepath.Join(cwd,"/views/layouts") + string(filepath.Separator)
 
-  fmt.Println("LAYOUT_DIR: ",LayoutDir)
+  // fmt.Println("LAYOUT_DIR: ",LayoutDir)
 
   files, err := filepath.Glob(LayoutDir + "*" + TemplateExt)
   if err!=nil {
@@ -30,7 +30,7 @@ func layoutFiles() [] string {
 }
 
 func NewView(layout string, files ...string) *View {
-  fmt.Println("LAYOUT_FILES: ",layoutFiles())
+  // fmt.Println("LAYOUT_FILES: ",layoutFiles())
   files = append(files,layoutFiles()...)
   temp,err := template.ParseFiles(files...)
   if err != nil {

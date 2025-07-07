@@ -11,6 +11,7 @@ import(
 
 var homeView *views.View
 var contactView *views.View
+var faqView *views.View
 
 
 func home(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
@@ -25,7 +26,7 @@ func contact(res http.ResponseWriter,req *http.Request, _ httprouter.Params){
 
 func faq(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
 	res.Header().Set("Content-Type","text/html")
-	fmt.Fprint(res,"<h1>FAQ!</h1>")
+	errorHandle(faqView.Render(res,nil))
 }
 
 func pageNotFound(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
@@ -44,6 +45,11 @@ func errorHandle(err error){
 }
 
 func main(){
+	router := httprouter.New()
+	fileServer := http.FileServer(http.Dir("./static"))
+	homeView = views.NewView("bootstrap","views/home.gohtml")
+	contactView = views.NewView("bootstrap","views/contact.gohtml")
+	faqView = views.NewView("bootstrap","views/faq.gohtml")
 	// r := mux.NewRouter()
 	// r.HandleFunc("/",home)
 	// r.HandleFunc("/contact",contact)
@@ -52,8 +58,6 @@ func main(){
 	// var h http.Handler = http.HandlerFunc(pageNotFound)
 	// r.NotFoundHandler = h
 	// var err error
-	homeView = views.NewView("bootstrap","views/home.gohtml")
-	contactView = views.NewView("bootstrap","views/contact.gohtml")
 	// homeView, err = template.ParseFiles(
 	// 	"views/home.gohtml",
 	// 	"views/layouts/footer.gohtml",
@@ -70,11 +74,11 @@ func main(){
 	// 	panic(err)
 	// }
 
-	router := httprouter.New()
+	router.NotFound =	http.StripPrefix("/static/",fileServer)
+
 	router.GET("/",home)
 	router.GET("/contact",contact)
 	router.GET("/faq",faq)
-
 	// var h http.Handler = http.HandlerFunc(pageNotFound)
 	// router.NotFoundHandler = h
 
