@@ -38,8 +38,8 @@ func NewView(layout string, files ...string) *View {
   }
 
   return &View {
-    Template: temp,
     Layout: layout,
+    Template: temp,
   }
 }
 
@@ -49,5 +49,12 @@ type View struct {
 }
 
 func (v *View) Render(res http.ResponseWriter, data interface{}) error {
+  res.Header().Set("Content-Type","text/html")
   return v.Template.ExecuteTemplate(res, v.Layout, data)
+}
+
+func (v *View) ServeHTTP(res http.ResponseWriter, req *http.Request)  {
+    if err := v.Render(res,nil); err != nil {
+      panic(err)
+    }
 }
