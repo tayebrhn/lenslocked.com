@@ -60,6 +60,22 @@ func (us *UserService) ByID(id uint) (*User,error) {
   return &user, nil
 }
 
+func (us *UserService) ByAge(age uint) (*User,error) {
+  var user User
+  db := us.db.Where("age = ?",age)
+  err := first(db, &user)
+  if err != nil {
+    return nil, err
+  }
+  return &user, nil
+}
+
+func (us *UserService) InAgeRange(min, max uint) []User {
+  var users []User
+  us.db.Where("age BETWEEN ? AND ?",min,max).Find(&users)
+  return users
+}
+
 func (us *UserService) ByEmail(email string) (*User,error) {
   var user User
   db := us.db.Where("email = ?",email)

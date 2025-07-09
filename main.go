@@ -32,7 +32,10 @@ func main(){
 		panic(err)
 	}
 	defer us.Close()
-	us.AutoMigrate()
+
+	if err := us.DestructiveReset(); err != nil {
+		panic(err)
+	}
 
 	// user := models.User {
 	// 	Name: "Michael Scott",

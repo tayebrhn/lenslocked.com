@@ -6,11 +6,11 @@ import (
   "lenslocked.com/models"
 )
 
-func NewUser(us *models.UserService) *User {
-  return &User {
-    newView: views.NewView("bootstrap","user/new"),
-    us: us,
-  }
+type SignUpForm struct {
+  Name string `schema:"name"`
+  Email string `schema:"email"`
+  Age uint `schema:"age"`
+  Password string `schema:"password"`
 }
 
 type User struct {
@@ -34,17 +34,21 @@ func (u *User) Create(res http.ResponseWriter, req *http.Request) {
   user := models.User{
     Name: form.Name,
     Email: form.Email,
+    Age: form.Age,
   }
 
   if err := u.us.Create(&user); err != nil {
     http.Error(res, err.Error(), http.StatusInternalServerError)
     return
   }
-  fmt.Fprintln(res,"User is: ",user)
+
+  foundUser := u.us.InAgeRange(15,25)
+  fmt.Fprintln(res,"User is: ",foundUser)
 }
 
-type SignUpForm struct {
-  Name string `schema:"name"`
-  Email string `schema:"email"`
-  Password string `schema:"password"`
+func NewUser(us *models.UserService) *User {
+  return &User {
+    newView: views.NewView("bootstrap","user/new"),
+    us: us,
+  }
 }
