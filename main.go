@@ -4,34 +4,9 @@ import(
 	"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
-	// "github.com/julienschmidt/httprouter"
-	// "html/template"
-	// "lenslocked.com/views"
+	"lenslocked.com/models"
 	"lenslocked.com/controllers"
 )
-
-
-// var (
-// 	homeView *views.View
-// 	contactView *views.View
-// 	faqView *views.View
-// )
-
-
-// func home(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
-// 	res.Header().Set("Content-Type","text/html")
-// 	errorHandle(homeView.Render(res,nil))
-// }
-//
-// func contact(res http.ResponseWriter,req *http.Request, _ httprouter.Params){
-// 	res.Header().Set("Content-Type","text/html")
-// 	errorHandle(contactView.Render(res,nil))
-// }
-//
-// func faq(res http.ResponseWriter,req *http.Request,_ httprouter.Params){
-// 	res.Header().Set("Content-Type","text/html")
-// 	errorHandle(faqView.Render(res,nil))
-// }
 
 func pageNotFound(res http.ResponseWriter,req *http.Request){
 	res.WriteHeader(http.StatusNotFound)
@@ -41,25 +16,54 @@ func pageNotFound(res http.ResponseWriter,req *http.Request){
 	"invalid page.</p>")
 }
 
-// func signUp(res http.ResponseWriter, req *http.Request, _ httprouter.Params)  {
-// 	res.Header().Set("Content-Type","text/html")
-// 	errorHandle(signUpView.Render(res,nil))
-// }
-
-// func errorHandle(err error){
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
+const (
+	host = "localhost"
+	port = 5432
+	user = "postgres"
+	password = "taye"
+	dbname = "lenslocked_dev"
+)
 
 func main(){
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+	 	host, port, user, password, dbname)
+	us, err := models.NewUserService(psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer us.Close()
+	us.AutoMigrate()
 
-	// homeView = views.NewView("bootstrap","views/home.gohtml")
-	// contactView = views.NewView("bootstrap","views/contact.gohtml")
-	// faqView = views.NewView("bootstrap","views/faq.gohtml")
+	// user := models.User {
+	// 	Name: "Michael Scott",
+	// 	Email: "michael@dundermifflin.com",
+	// }
+	// if err := us.Create(&user); err != nil {
+	// 	panic(err)
+	// }
+	//
+	// // user.Name = "Updated Name"
+	// // if err := us.Update(&user) ;err != nil {
+	// // 	panic(err)
+	// // }
+	// foundUser, err := us.ByEmail("michael@dundermifflin.com")
+	// if err != nil {
+	// 		panic(err)
+	// }
+	//
+	// if err := us.Delete(foundUser.ID); err != nil {
+	// 	panic(err)
+	// }
+	//
+	// _ , err = us.ByEmail("michael@dundermifflin.com")
+	// if err != models.ErrNotFound {
+	// 		panic("user was not deleted!")
+	// }
+	// fmt.Println("FOUND: ",foundUser)
+
 	staticController := controllers.NewStatic()
-	userController := controllers.NewUser()
-	// signUpView = views.NewView("bootstrap","views/signup.gohtml")
+	userController := controllers.NewUser(us)
+	galleryController := controllers.NewGallery()
 
 	fileServer := http.FileServer(http.Dir("./static"))
 
@@ -70,6 +74,8 @@ func main(){
 	router.Handle("/faq",staticController.FAQ).Methods("GET")
 	router.HandleFunc("/signup", userController.New).Methods("GET")
 	router.HandleFunc("/signup", userController.Create).Methods("POST")
+	router.HandleFunc("/gallery/new", galleryController.New).Methods("GET")
+//pg portb 432
 
 	http.ListenAndServe(":3000",router)
 }

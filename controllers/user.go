@@ -2,23 +2,24 @@ package controllers
 import (
   "fmt"
   "net/http"
-  // "github.com/julienschmidt/httprouter"
-  // "github.com/gorilla/schema"
   "lenslocked.com/views"
+  "lenslocked.com/models"
 )
 
-func NewUser() *User {
+func NewUser(us *models.UserService) *User {
   return &User {
-    NewView: views.NewView("bootstrap","views/user/new.gohtml"),
+    newView: views.NewView("bootstrap","user/new"),
+    us: us,
   }
 }
 
 type User struct {
-  NewView *views.View
+  newView *views.View
+  us *models.UserService
 }
 
 func (u *User) New(res http.ResponseWriter, req *http.Request) {
-  err := u.NewView.Render(res,nil)
+  err := u.newView.Render(res,nil)
   if err != nil {
     panic(err)
   }
@@ -29,10 +30,21 @@ func (u *User) Create(res http.ResponseWriter, req *http.Request) {
   if err := parseForm(req,&form); err != nil {
     panic(err)
   }
-  fmt.Fprint(res,form)
+
+  user := models.User{
+    Name: form.Name,
+    Email: form.Email,
+  }
+
+  if err := u.us.Create(&user); err != nil {
+    http.Error(res, err.Error(), http.StatusInternalServerError)
+    return
+  }
+  fmt.Fprintln(res,"User is: ",user)
 }
 
 type SignUpForm struct {
+  Name string `schema:"name"`
   Email string `schema:"email"`
   Password string `schema:"password"`
 }
