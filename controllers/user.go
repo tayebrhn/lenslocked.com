@@ -23,7 +23,15 @@ type loginForm struct {
 type User struct {
   NewView *views.View
   LoginView *views.View
-  us *models.UserService
+  us models.UserService
+}
+
+func NewUser(us models.UserService) *User {
+  return &User {
+    NewView: views.NewView("bootstrap","user/new"),
+    LoginView: views.NewView("bootstrap","user/login"),
+    us: us,
+  }
 }
 
 func (u *User) New(wr http.ResponseWriter, req *http.Request) {
@@ -71,7 +79,7 @@ func (u *User) Login(wr http.ResponseWriter, req *http.Request) {
     switch err {
     case models.ErrNotFound:
       fmt.Fprintln(wr,"invalid email address")
-    case models.ErrInvalidPassword:
+    case models.ErrPasswordIncorrect:
       fmt.Fprintln(wr,"invalid password provided")
     default:
       http.Error(wr,err.Error(), http.StatusInternalServerError)
@@ -116,12 +124,4 @@ func (u *User) signIn(wr http.ResponseWriter, user *models.User) error  {
 
   http.SetCookie(wr, &cookie)
   return nil
-}
-
-func NewUser(us *models.UserService) *User {
-  return &User {
-    NewView: views.NewView("bootstrap","user/new"),
-    LoginView: views.NewView("bootstrap","user/login"),
-    us: us,
-  }
 }
