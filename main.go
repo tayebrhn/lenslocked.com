@@ -77,7 +77,10 @@ func main(){
 	router.Handle("/faq",staticController.FAQ).Methods("GET")
 	router.HandleFunc("/signup", userController.New).Methods("GET")
 	router.HandleFunc("/signup", userController.Create).Methods("POST")
+	router.Handle("/login",userController.LoginView).Methods("GET")
+	router.HandleFunc("/login", userController.Login).Methods("POST")
 	router.HandleFunc("/gallery/new", galleryController.New).Methods("GET")
+	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 //pg portb 432
 
 	http.ListenAndServe(":3000",router)
