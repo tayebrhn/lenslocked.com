@@ -1,17 +1,12 @@
 package models
-
 import (
 	"regexp"
 	"strings"
-
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 	"lenslocked.com/helpers/hash"
 	"lenslocked.com/helpers/rand"
 )
-
 const (
 	pwPepper      = "secret-random-string"
 	hmacSecretKey = "secret-hmac-key"
@@ -30,51 +25,41 @@ const (
 	ErrRemToShort       modelError = "models: remeber token" +
 		"must be atleast 32 bytes"
 )
-
 func (e modelError) Error() string {
 	return string(e)
 }
-
 func (e modelError) Public() string {
 	str := strings.Replace(string(e), "models: ", "", 1)
 	split := strings.Split(str, " ")
 	split[0] = strings.ToUpper(split[0])
 	return strings.Join(split, " ")
 }
-
 type modelError string
-
 type UserDB interface {
+	//Method for querying for single users
 	ByID(id uint) (*User, error)
 	ByEmail(email string) (*User, error)
 	ByRemember(token string) (*User, error)
 	ByAge(age uint) (*User, error)
+	//Method for querying for multiple users
 	InAgeRange(min, max uint) []User
+	//Method for altering users
 	Create(user *User) error
 	Update(user *User) error
-	Delete(id uint) error
-	DestructiveReset() error
-	AutoMigrate() error
-	Close() error
+	Delete(id uint) error	
 }
-
 type UserService interface {
 	UserDB
 	Authenticate(email, password string) (*User, error)
 }
-
-func NewUserService(connInfo string) (UserService, error) {
-	userg, err := newUserGORM(connInfo)
-	if err != nil {
-		return nil, err
-	}
+func NewUserService(db *gorm.DB) UserService {
+	userg := &userGORM{db}
 	hmac := hash.NewHMAC(hmacSecretKey)
 	uv := newUserValidator(userg, hmac)
 	return &userService{
 		UserDB: uv,
-	}, nil
+	}
 }
-
 type User struct {
 	gorm.Model
 	Name         string `gorm:"not null"`
@@ -85,7 +70,6 @@ type User struct {
 	Remember     string `gorm:"-"`
 	RememberHash string `gorm:"not null;unique_index"`
 }
-
 func (us *userService) Authenticate(email, password string) (*User, error) {
 	uv := newUserValidator(us.UserDB, hash.NewHMAC(hmacSecretKey))
 	user := &User{
@@ -116,13 +100,10 @@ func (us *userService) Authenticate(email, password string) (*User, error) {
 		return nil, err
 	}
 }
-
 type userService struct {
 	UserDB
 }
-
 var _ UserService = &userService{}
-
 func runUserValFns(user *User, fns ...userValFn) error {
 	for _, fn := range fns {
 		if err := fn(user); err != nil {
@@ -131,9 +112,7 @@ func runUserValFns(user *User, fns ...userValFn) error {
 	}
 	return nil
 }
-
 type userValFn func(*User) error
-
 // Validation and Data Normalization helper Functions
 func (uv *userValidator) bcryptPassword(user *User) error {
 	if user.Password == "" {
@@ -149,7 +128,6 @@ func (uv *userValidator) bcryptPassword(user *User) error {
 	user.Password = ""
 	return nil
 }
-
 func (uv *userValidator) setRememberIfUnset(user *User) error {
 	if user.Remember != "" {
 		return nil
@@ -161,7 +139,6 @@ func (uv *userValidator) setRememberIfUnset(user *User) error {
 	user.Remember = token
 	return nil
 }
-
 func (uv *userValidator) hmacRemember(user *User) error {
 	if user.Remember == "" {
 		return nil
@@ -170,7 +147,6 @@ func (uv *userValidator) hmacRemember(user *User) error {
 	user.RememberHash = uv.hmac.Hash(user.Remember)
 	return nil
 }
-
 func (uv *userValidator) idGtThan(id uint) userValFn {
 	return userValFn(func(user *User) error {
 		if user.ID <= id {
@@ -179,20 +155,17 @@ func (uv *userValidator) idGtThan(id uint) userValFn {
 		return nil
 	})
 }
-
 func (uv *userValidator) normalizeEmail(user *User) error {
 	user.Email = strings.ToLower(user.Email)
 	user.Email = strings.TrimSpace(user.Email)
 	return nil
 }
-
 func (uv *userValidator) requireEmail(user *User) error {
 	if user.Email == "" {
 		return ErrEmailRequired
 	}
 	return nil
 }
-
 func (uv *userValidator) emailFormat(user *User) error {
 	if user.Email == "" {
 		return nil
@@ -202,7 +175,6 @@ func (uv *userValidator) emailFormat(user *User) error {
 	}
 	return nil
 }
-
 func (uv *userValidator) emailIsAvail(user *User) error {
 	existing, err := uv.ByEmail(user.Email)
 	if err == ErrNotFound {
@@ -216,7 +188,6 @@ func (uv *userValidator) emailIsAvail(user *User) error {
 	}
 	return nil
 }
-
 func (uv *userValidator) pwMinLen(user *User) error {
 	if user.Password == "" {
 		return nil
@@ -226,21 +197,18 @@ func (uv *userValidator) pwMinLen(user *User) error {
 	}
 	return nil
 }
-
 func (uv *userValidator) pwReq(user *User) error {
 	if user.Password == "" {
 		return ErrPasswordRequired
 	}
 	return nil
 }
-
 func (uv *userValidator) pwHashReq(user *User) error {
 	if user.PasswordHash == "" {
 		return ErrPasswordRequired
 	}
 	return nil
 }
-
 func (uv *userValidator) remMinBytes(user *User) error {
 	if user.Remember == "" {
 		return nil
@@ -255,7 +223,6 @@ func (uv *userValidator) remMinBytes(user *User) error {
 	}
 	return nil
 }
-
 // valdation function
 func (uv *userValidator) Create(user *User) error {
 
@@ -277,7 +244,6 @@ func (uv *userValidator) Create(user *User) error {
 	}
 	return uv.UserDB.Create(user)
 }
-
 func (uv *userValidator) Update(user *User) error {
 	err := runUserValFns(
 		user,
@@ -295,7 +261,6 @@ func (uv *userValidator) Update(user *User) error {
 	}
 	return uv.UserDB.Update(user)
 }
-
 func (uv *userValidator) Delete(id uint) error {
 	var user User
 	user.ID = id
@@ -304,7 +269,6 @@ func (uv *userValidator) Delete(id uint) error {
 	}
 	return uv.UserDB.Delete(id)
 }
-
 func (uv *userValidator) ByRemember(token string) (*User, error) {
 	user := User{
 		Remember: token,
@@ -314,7 +278,6 @@ func (uv *userValidator) ByRemember(token string) (*User, error) {
 	}
 	return uv.UserDB.ByRemember(user.RememberHash)
 }
-
 func (uv *userValidator) ByEmail(email string) (*User, error) {
 	user := User{
 		Email: email,
@@ -328,7 +291,6 @@ func (uv *userValidator) ByEmail(email string) (*User, error) {
 	}
 	return uv.UserDB.ByEmail(user.Email)
 }
-
 func newUserValidator(udb UserDB, hmac hash.HMAC) *userValidator {
 	return &userValidator{
 		UserDB: udb,
@@ -337,13 +299,11 @@ func newUserValidator(udb UserDB, hmac hash.HMAC) *userValidator {
 			`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
 	}
 }
-
 type userValidator struct {
 	UserDB
 	hmac       hash.HMAC
 	emailRegex *regexp.Regexp
 }
-
 // Database Manipulation function
 func first(db *gorm.DB, dst interface{}) error {
 	err := db.First(dst).Error
@@ -352,20 +312,16 @@ func first(db *gorm.DB, dst interface{}) error {
 	}
 	return err
 }
-
 func (us *userGORM) Create(user *User) error {
 	return us.db.Create(user).Error
 }
-
 func (us *userGORM) Update(user *User) error {
 	return us.db.Save(user).Error
 }
-
 func (us *userGORM) Delete(id uint) error {
 	user := User{Model: gorm.Model{ID: id}}
 	return us.db.Delete(&user).Error
 }
-
 func (us *userGORM) ByID(id uint) (*User, error) {
 	var user User
 	db := us.db.Where("id = ?", id)
@@ -375,7 +331,6 @@ func (us *userGORM) ByID(id uint) (*User, error) {
 	}
 	return &user, nil
 }
-
 func (us *userGORM) ByEmail(email string) (*User, error) {
 	var user User
 	db := us.db.Where("email = ?", email)
@@ -385,7 +340,6 @@ func (us *userGORM) ByEmail(email string) (*User, error) {
 	}
 	return &user, nil
 }
-
 func (us *userGORM) ByRemember(token string) (*User, error) {
 	var user User
 	err := first(us.db.Where("remember_hash = ?", token), &user)
@@ -394,7 +348,6 @@ func (us *userGORM) ByRemember(token string) (*User, error) {
 	}
 	return &user, nil
 }
-
 func (us *userGORM) ByAge(age uint) (*User, error) {
 	var user User
 	db := us.db.Where("age = ?", age)
@@ -404,45 +357,12 @@ func (us *userGORM) ByAge(age uint) (*User, error) {
 	}
 	return &user, nil
 }
-
 func (us *userGORM) InAgeRange(min, max uint) []User {
 	var users []User
 	us.db.Where("age BETWEEN ? AND ?", min, max).Find(&users)
 	return users
 }
-
-func (us *userGORM) AutoMigrate() error {
-	if err := us.db.AutoMigrate(&User{}).Error; err != nil {
-		return err
-	}
-	return nil
-}
-
-func (us *userGORM) DestructiveReset() error {
-	err := us.db.DropTableIfExists(&User{}).Error
-	if err != nil {
-		return err
-	}
-	return us.AutoMigrate()
-}
-
-func (us *userGORM) Close() error {
-	return us.db.Close()
-}
-
-func newUserGORM(connInfo string) (*userGORM, error) {
-	db, err := gorm.Open("postgres", connInfo)
-	if err != nil {
-		return nil, err
-	}
-	db.LogMode(true)
-	return &userGORM{
-		db: db,
-	}, nil
-}
-
 type userGORM struct {
 	db *gorm.DB
 }
-
 var _ UserDB = &userGORM{}

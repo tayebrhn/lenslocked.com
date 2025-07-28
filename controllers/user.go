@@ -76,7 +76,7 @@ func (u *User) CookieTest(wr http.ResponseWriter, req *http.Request) {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	user, err := u.us.ByRemember(cookie.Value)
+	user, _ := u.us.ByRemember(cookie.Value)
 	fmt.Fprintln(wr, user)
 }
 

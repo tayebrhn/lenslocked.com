@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
+	"lenslocked.com/middleware"
 	"lenslocked.com/models"
 )
 
@@ -28,19 +29,23 @@ const (
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
-	us, err := models.NewUserService(psqlInfo)
+	services, err := models.NewServices(psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	defer us.Close()
+	defer services.Close()
 
-	if err := us.DestructiveReset(); err != nil {
+	if err := services.DestructiveReset(); err != nil {
 		panic(err)
 	}
 
 	staticController := controllers.NewStatic()
-	userController := controllers.NewUser(us)
-	galleryController := controllers.NewGallery()
+	userController := controllers.NewUser(services.User)
+	galleryController := controllers.NewGallery(services.Gallery)
+
+	reqUserMw := middleware.ReqUser{
+		UserService: services.User,
+	}
 
 	fileServer := http.FileServer(http.Dir("./static"))
 
@@ -53,8 +58,10 @@ func main() {
 	router.HandleFunc("/signup", userController.Create).Methods("POST")
 	router.Handle("/login", userController.LoginView).Methods("GET")
 	router.HandleFunc("/login", userController.Login).Methods("POST")
-	router.HandleFunc("/gallery/new", galleryController.New).Methods("GET")
+	router.HandleFunc("/galleries/new", galleryController.New).Methods("GET")
+	router.HandleFunc("/galleries", galleryController.Create).Methods("POST")
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 
+	fmt.Printf("Starting server on :3000...")
 	http.ListenAndServe(":3000", router)
 }
