@@ -47,6 +47,9 @@ func main() {
 		UserService: services.User,
 	}
 
+	newGallery := reqUserMw.Apply(galleryController.New)
+	createGallery := reqUserMw.ApplyFn(galleryController.Create)
+
 	fileServer := http.FileServer(http.Dir("./static"))
 
 	router := mux.NewRouter()
@@ -58,8 +61,8 @@ func main() {
 	router.HandleFunc("/signup", userController.Create).Methods("POST")
 	router.Handle("/login", userController.LoginView).Methods("GET")
 	router.HandleFunc("/login", userController.Login).Methods("POST")
-	router.HandleFunc("/galleries/new", galleryController.New).Methods("GET")
-	router.HandleFunc("/galleries", galleryController.Create).Methods("POST")
+	router.HandleFunc("/galleries/new", newGallery).Methods("GET")
+	router.HandleFunc("/galleries", createGallery).Methods("POST")
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 
 	fmt.Printf("Starting server on :3000...")

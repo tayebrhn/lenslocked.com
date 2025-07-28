@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 
+	"lenslocked.com/context"
 	"lenslocked.com/models"
 )
 
@@ -21,6 +21,10 @@ func (mw *ReqUser) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		user, err := mw.UserService.ByRemember(cookie.Value)
+		ctx := req.Context()
+		ctx = context.WithUser(ctx,user)
+		req = req.WithContext(ctx)
+
 		if err != nil {
 			http.Redirect(wr,req,"login", http.StatusFound)
 			return
