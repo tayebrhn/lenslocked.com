@@ -17,6 +17,7 @@ func (mw *ReqUser) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
 		cookie, err := req.Cookie("remember_token")
 
 		if err != nil {
+			println("LOGERR:",err.Error())
 			http.Redirect(wr,req,"/login",http.StatusFound)
 			return
 		}

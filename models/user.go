@@ -1,7 +1,10 @@
 package models
+
 import (
+	"fmt"
 	"regexp"
 	"strings"
+
 	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
 	"lenslocked.com/helpers/hash"
@@ -273,7 +276,8 @@ func (uv *userValidator) ByRemember(token string) (*User, error) {
 	user := User{
 		Remember: token,
 	}
-	if err := runUserValFns(&user, uv.hmacRemember); err != nil {
+	err := runUserValFns(&user, uv.hmacRemember)
+	if err != nil {
 		return nil, err
 	}
 	return uv.UserDB.ByRemember(user.RememberHash)
@@ -346,6 +350,7 @@ func (us *userGORM) ByRemember(token string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Print("LOG: executed")
 	return &user, nil
 }
 func (us *userGORM) ByAge(age uint) (*User, error) {

@@ -71,7 +71,7 @@ func (u *User) Login(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (u *User) CookieTest(wr http.ResponseWriter, req *http.Request) {
-	cookie, err := req.Cookie("remeber_token")
+	cookie, err := req.Cookie("remember_token")
 	if err != nil {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
@@ -93,7 +93,7 @@ func (u *User) signIn(wr http.ResponseWriter, user *models.User) error {
 		}
 	}
 	cookie := http.Cookie{
-		Name:     "remeber_token",
+		Name:     "remember_token",
 		Value:    user.Remember,
 		HttpOnly: true,
 	}

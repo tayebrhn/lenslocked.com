@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
+	"net/http"
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
 	"lenslocked.com/middleware"
@@ -27,6 +27,7 @@ const (
 )
 
 func main() {
+	router := mux.NewRouter()
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 	services, err := models.NewServices(psqlInfo)
@@ -41,7 +42,7 @@ func main() {
 
 	staticController := controllers.NewStatic()
 	userController := controllers.NewUser(services.User)
-	galleryController := controllers.NewGallery(services.Gallery)
+	galleryController := controllers.NewGalleries(services.Gallery,router)
 
 	reqUserMw := middleware.ReqUser{
 		UserService: services.User,
@@ -52,7 +53,6 @@ func main() {
 
 	fileServer := http.FileServer(http.Dir("./static"))
 
-	router := mux.NewRouter()
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fileServer))
 	router.Handle("/", staticController.Home).Methods("GET")
 	router.Handle("/contact", staticController.Contact).Methods("GET")
@@ -63,6 +63,7 @@ func main() {
 	router.HandleFunc("/login", userController.Login).Methods("POST")
 	router.HandleFunc("/galleries/new", newGallery).Methods("GET")
 	router.HandleFunc("/galleries", createGallery).Methods("POST")
+	router.HandleFunc("/galleries/{id:[0-9]+}", galleryController.Show).Methods("GET").Name(controllers.ShowGallery)
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 
 	fmt.Printf("Starting server on :3000...")
