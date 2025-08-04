@@ -27,6 +27,7 @@ type Gallery struct {
 type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
 	Create(gallery *Gallery) error
+	Update(gallery *Gallery) error
 }
 
 func NewGalleryService(db *gorm.DB) GalleryService {
@@ -72,6 +73,18 @@ func (gv *galleryValidator) Create(gallery *Gallery) error {
 	return gv.GalleryDB.Create(gallery)
 }
 
+func (gv *galleryValidator) Update(gallery *Gallery) error {
+	err := runGalleryValFns(
+		gallery,
+		gv.userIDReq,
+		gv.titleReq,
+	)
+	if err != nil {
+		return err
+	}
+	return gv.GalleryDB.Update(gallery)
+}
+
 type galleryValidator struct {
 	GalleryDB
 }
@@ -84,6 +97,10 @@ func (gg *galleryGORM) ByID(id uint) (*Gallery ,error) {
 		return nil, err
 	}
 	return &gallery, nil
+}
+
+func (gg *galleryGORM) Update(gallery *Gallery) error {
+	return gg.db.Save(gallery).Error
 }
 
 func (gg *galleryGORM) Create(gallery *Gallery) error {

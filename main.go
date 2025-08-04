@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"net/http"
+
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
 	"lenslocked.com/middleware"
@@ -42,7 +43,7 @@ func main() {
 
 	staticController := controllers.NewStatic()
 	userController := controllers.NewUser(services.User)
-	galleryController := controllers.NewGalleries(services.Gallery,router)
+	galleryController := controllers.NewGalleries(services.Gallery, router)
 
 	reqUserMw := middleware.ReqUser{
 		UserService: services.User,
@@ -64,6 +65,8 @@ func main() {
 	router.HandleFunc("/galleries/new", newGallery).Methods("GET")
 	router.HandleFunc("/galleries", createGallery).Methods("POST")
 	router.HandleFunc("/galleries/{id:[0-9]+}", galleryController.Show).Methods("GET").Name(controllers.ShowGallery)
+	router.HandleFunc("/galleries/{id:[0-9]+}/edit", reqUserMw.ApplyFn(galleryController.Edit)).Methods("GET")
+	router.HandleFunc("/galleries/{id:[0-9]+}/update", reqUserMw.ApplyFn(galleryController.Update)).Methods("POST")
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 
 	fmt.Printf("Starting server on :3000...")
