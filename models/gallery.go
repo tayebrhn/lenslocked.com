@@ -1,6 +1,8 @@
 package models
 
-import "github.com/jinzhu/gorm"
+import (
+	"github.com/jinzhu/gorm"
+)
 
 const (
 	ErrUserIDRequired modelError = "model: user ID is requered"
@@ -26,6 +28,7 @@ type Gallery struct {
 
 type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
+	ByUserID(userID uint) ([]Gallery, error)
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error
 	Delete(id uint) error
@@ -45,6 +48,10 @@ type GalleryService interface {
 	GalleryDB
 }
 type galleryService struct {
+	GalleryDB
+}
+
+type galleryValidator struct {
 	GalleryDB
 }
 
@@ -107,8 +114,20 @@ func (gv *galleryValidator) Update(gallery *Gallery) error {
 	return gv.GalleryDB.Update(gallery)
 }
 
-type galleryValidator struct {
-	GalleryDB
+type galleryGORM struct {
+	db *gorm.DB
+}
+
+var _ GalleryDB = &galleryGORM{}
+
+func (gg *galleryGORM) ByUserID(userID uint) ([]Gallery, error) {
+	var galleries []Gallery
+	db := gg.db.Where("user_id = ?", userID)
+	err := db.Find(&galleries).Error
+	if err != nil {
+		return nil, err
+	}
+	return galleries, nil
 }
 
 func (gg *galleryGORM) ByID(id uint) (*Gallery, error) {
@@ -134,9 +153,3 @@ func (gg *galleryGORM) Update(gallery *Gallery) error {
 func (gg *galleryGORM) Create(gallery *Gallery) error {
 	return gg.db.Create(gallery).Error
 }
-
-type galleryGORM struct {
-	db *gorm.DB
-}
-
-var _ GalleryDB = &galleryGORM{}

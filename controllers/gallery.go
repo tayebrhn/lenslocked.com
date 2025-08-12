@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	// "errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -17,20 +19,40 @@ const (
 
 func NewGalleries(gs models.GalleryService, router *mux.Router) *Galleries {
 	return &Galleries{
-		ShowView: views.NewView("bootstrap", "gallery/show"),
-		New:      views.NewView("bootstrap", "gallery/new"),
-		EditView: views.NewView("bootstrap", "gallery/edit"),
-		gs:       gs,
-		router:   router,
+		ShowView:  views.NewView("bootstrap", "gallery/show"),
+		New:       views.NewView("bootstrap", "gallery/new"),
+		EditView:  views.NewView("bootstrap", "gallery/edit"),
+		IndexView: views.NewView("bootstrap", "gallery/index"),
+		gs:        gs,
+		router:    router,
 	}
 }
 
 type Galleries struct {
-	ShowView *views.View
-	New      *views.View
-	EditView *views.View
-	gs       models.GalleryService
-	router   *mux.Router
+	ShowView  *views.View
+	New       *views.View
+	EditView  *views.View
+	IndexView *views.View
+	gs        models.GalleryService
+	router    *mux.Router
+}
+
+func (g *Galleries) Index(wr http.ResponseWriter, req *http.Request) {
+	user := context.User(req.Context())
+	if user == nil {
+		http.Error(wr, "Unauthorized", http.StatusUnauthorized)
+		println(user.Name)
+		return
+	}
+	galleries, err := g.gs.ByUserID(user.ID)
+
+	if err != nil {
+		http.Error(wr, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	var vd views.Data
+	vd.Yield = galleries
+	g.IndexView.Render(wr, vd)
 }
 
 func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
@@ -155,6 +177,13 @@ func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*m
 		http.Error(wr, "Invalid gallery ID", http.StatusNotFound)
 		return nil, err
 	}
+
+	fmt.Printf("INSIDE->galleriesByID g.gs: %#v\n", g.gs)
+	println()
+	if g.gs == nil {
+		log.Fatal("g.gs is nil!")
+	}
+	println()
 
 	gallery, err := g.gs.ByID(uint(id))
 

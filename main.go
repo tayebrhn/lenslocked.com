@@ -41,17 +41,19 @@ func main() {
 		panic(err)
 	}
 
+	//init controllers
 	staticController := controllers.NewStatic()
 	userController := controllers.NewUser(services.User)
 	galleryController := controllers.NewGalleries(services.Gallery, router)
 
+	//applying middlewares
 	reqUserMw := middleware.ReqUser{
 		UserService: services.User,
 	}
-
 	newGallery := reqUserMw.Apply(galleryController.New)
 	createGallery := reqUserMw.ApplyFn(galleryController.Create)
-
+	
+	//setting up static file resourses
 	fileServer := http.FileServer(http.Dir("./static"))
 
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fileServer))
@@ -62,6 +64,7 @@ func main() {
 	router.HandleFunc("/signup", userController.Create).Methods("POST")
 	router.Handle("/login", userController.LoginView).Methods("GET")
 	router.HandleFunc("/login", userController.Login).Methods("POST")
+	router.HandleFunc("/galleries", reqUserMw.ApplyFn(galleryController.Index)).Methods("GET")
 	router.HandleFunc("/galleries/new", newGallery).Methods("GET")
 	router.HandleFunc("/galleries", createGallery).Methods("POST")
 	router.HandleFunc("/galleries/{id:[0-9]+}", galleryController.Show).Methods("GET").Name(controllers.ShowGallery)
