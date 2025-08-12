@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -30,6 +31,28 @@ type Galleries struct {
 	EditView *views.View
 	gs       models.GalleryService
 	router   *mux.Router
+}
+
+func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
+	gallery, err := g.galleriesByID(wr, req)
+	if err != nil {
+		return
+	}
+	user := context.User(req.Context())
+
+	if gallery.ID != user.ID {
+		http.Error(wr, "You do not have permision to edit", http.StatusForbidden)
+		return
+	}
+	var vd views.Data
+	err = g.gs.Delete(gallery.ID)
+	if err != nil {
+		vd.SetAlert(err)
+		vd.Yield = gallery
+		g.EditView.Render(wr, vd)
+		return
+	}
+	fmt.Fprintln(wr, "Succesfully deleted")
 }
 
 func (g *Galleries) Create(wr http.ResponseWriter, req *http.Request) {
@@ -110,9 +133,15 @@ func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
 		return
 	}
 	gallery.Title = form.Title
-	vd.Alert = &views.Alert{
-		Level:   views.AlertLvlSuccess,
-		Message: "Gallery updated successfully",
+
+	err = g.gs.Update(gallery)
+	if err != nil {
+		vd.SetAlert(err)
+	} else {
+		vd.Alert = &views.Alert{
+			Level:   views.AlertLvlSuccess,
+			Message: "Gallery updated successfully",
+		}
 	}
 	g.EditView.Render(wr, vd)
 }

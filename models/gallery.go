@@ -2,9 +2,9 @@ package models
 
 import "github.com/jinzhu/gorm"
 
-const(
+const (
 	ErrUserIDRequired modelError = "model: user ID is requered"
-	ErrTitleRequierd modelError = "model: title is requered"
+	ErrTitleRequierd  modelError = "model: title is requered"
 )
 
 type galleryFunc func(*Gallery) error
@@ -28,6 +28,7 @@ type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error
+	Delete(id uint) error
 }
 
 func NewGalleryService(db *gorm.DB) GalleryService {
@@ -45,6 +46,13 @@ type GalleryService interface {
 }
 type galleryService struct {
 	GalleryDB
+}
+
+func (gv *galleryValidator) nonZero(gallery *Gallery) error {
+	if gallery.ID <= 0 {
+		return ErrIDInvalid
+	}
+	return nil
 }
 
 func (gv *galleryValidator) userIDReq(g *Gallery) error {
@@ -73,6 +81,20 @@ func (gv *galleryValidator) Create(gallery *Gallery) error {
 	return gv.GalleryDB.Create(gallery)
 }
 
+func (gv *galleryValidator) Delete(id uint) error {
+	var gallery Gallery
+	gallery.ID = id
+
+	err := runGalleryValFns(
+		&gallery,
+		gv.nonZero,
+	)
+	if err != nil {
+		return err
+	}
+	return gv.GalleryDB.Delete(gallery.ID)
+}
+
 func (gv *galleryValidator) Update(gallery *Gallery) error {
 	err := runGalleryValFns(
 		gallery,
@@ -89,14 +111,20 @@ type galleryValidator struct {
 	GalleryDB
 }
 
-func (gg *galleryGORM) ByID(id uint) (*Gallery ,error) {
+func (gg *galleryGORM) ByID(id uint) (*Gallery, error) {
 	var gallery Gallery
-	db := gg.db.Where("id = ?",id)
-	err := first(db,&gallery)
+	db := gg.db.Where("id = ?", id)
+	err := first(db, &gallery)
 	if err != nil {
 		return nil, err
 	}
 	return &gallery, nil
+}
+
+func (gg *galleryGORM) Delete(id uint) error {
+	gallery := Gallery{
+		Model: gorm.Model{ID: id}}
+	return gg.db.Delete(&gallery).Error
 }
 
 func (gg *galleryGORM) Update(gallery *Gallery) error {

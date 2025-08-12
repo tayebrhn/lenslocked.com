@@ -49,6 +49,7 @@ func (v *View) Render(wr http.ResponseWriter, data interface{}) {
 	err := v.Template.ExecuteTemplate(&buf, v.Layout, data)
 	if err != nil {
 		http.Error(wr, "Something went wrong.", http.StatusInternalServerError)
+		print("RENDER_ERROR: ",err.Error())
 		return
 	}
 	io.Copy(wr, &buf)

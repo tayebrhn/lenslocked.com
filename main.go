@@ -67,6 +67,7 @@ func main() {
 	router.HandleFunc("/galleries/{id:[0-9]+}", galleryController.Show).Methods("GET").Name(controllers.ShowGallery)
 	router.HandleFunc("/galleries/{id:[0-9]+}/edit", reqUserMw.ApplyFn(galleryController.Edit)).Methods("GET")
 	router.HandleFunc("/galleries/{id:[0-9]+}/update", reqUserMw.ApplyFn(galleryController.Update)).Methods("POST")
+	router.HandleFunc("/galleries/{id:[0-9]+}/delete", reqUserMw.ApplyFn(galleryController.Delete)).Methods("POST")
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
 
 	fmt.Printf("Starting server on :3000...")
