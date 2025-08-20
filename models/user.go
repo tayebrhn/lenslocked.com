@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"lenslocked.com/helpers/hash"
 	"lenslocked.com/helpers/rand"
 )
+
 const (
 	pwPepper      = "secret-random-string"
 	hmacSecretKey = "secret-hmac-key"
@@ -28,6 +30,7 @@ const (
 	ErrRemToShort       modelError = "models: remeber token" +
 		"must be atleast 32 bytes"
 )
+
 func (e modelError) Error() string {
 	return string(e)
 }
@@ -37,6 +40,7 @@ func (e modelError) Public() string {
 	split[0] = strings.ToUpper(split[0])
 	return strings.Join(split, " ")
 }
+
 type modelError string
 type UserDB interface {
 	//Method for querying for single users
@@ -49,12 +53,13 @@ type UserDB interface {
 	//Method for altering users
 	Create(user *User) error
 	Update(user *User) error
-	Delete(id uint) error	
+	Delete(id uint) error
 }
 type UserService interface {
 	UserDB
 	Authenticate(email, password string) (*User, error)
 }
+
 func NewUserService(db *gorm.DB) UserService {
 	userg := &userGORM{db}
 	hmac := hash.NewHMAC(hmacSecretKey)
@@ -63,6 +68,7 @@ func NewUserService(db *gorm.DB) UserService {
 		UserDB: uv,
 	}
 }
+
 type User struct {
 	gorm.Model
 	Name         string `gorm:"not null"`
@@ -73,6 +79,7 @@ type User struct {
 	Remember     string `gorm:"-"`
 	RememberHash string `gorm:"not null;unique_index"`
 }
+
 func (us *userService) Authenticate(email, password string) (*User, error) {
 	uv := newUserValidator(us.UserDB, hash.NewHMAC(hmacSecretKey))
 	user := &User{
@@ -94,19 +101,22 @@ func (us *userService) Authenticate(email, password string) (*User, error) {
 	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash),
 		[]byte(password+pwPepper))
 
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return foundUser, nil
-	case bcrypt.ErrMismatchedHashAndPassword:
+	case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
 		return nil, ErrPasswordIncorrect
 	default:
 		return nil, err
 	}
 }
+
 type userService struct {
 	UserDB
 }
+
 var _ UserService = &userService{}
+
 func runUserValFns(user *User, fns ...userValFn) error {
 	for _, fn := range fns {
 		if err := fn(user); err != nil {
@@ -115,7 +125,9 @@ func runUserValFns(user *User, fns ...userValFn) error {
 	}
 	return nil
 }
+
 type userValFn func(*User) error
+
 // Validation and Data Normalization helper Functions
 func (uv *userValidator) bcryptPassword(user *User) error {
 	if user.Password == "" {
@@ -151,12 +163,12 @@ func (uv *userValidator) hmacRemember(user *User) error {
 	return nil
 }
 func (uv *userValidator) idGtThan(id uint) userValFn {
-	return userValFn(func(user *User) error {
+	return func(user *User) error {
 		if user.ID <= id {
 			return ErrIDInvalid
 		}
 		return nil
-	})
+	}
 }
 func (uv *userValidator) normalizeEmail(user *User) error {
 	user.Email = strings.ToLower(user.Email)
@@ -180,7 +192,7 @@ func (uv *userValidator) emailFormat(user *User) error {
 }
 func (uv *userValidator) emailIsAvail(user *User) error {
 	existing, err := uv.ByEmail(user.Email)
-	if err == ErrNotFound {
+	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -226,6 +238,7 @@ func (uv *userValidator) remMinBytes(user *User) error {
 	}
 	return nil
 }
+
 // valdation function
 func (uv *userValidator) Create(user *User) error {
 
@@ -303,11 +316,13 @@ func newUserValidator(udb UserDB, hmac hash.HMAC) *userValidator {
 			`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
 	}
 }
+
 type userValidator struct {
 	UserDB
 	hmac       hash.HMAC
 	emailRegex *regexp.Regexp
 }
+
 // Database Manipulation function
 func first(db *gorm.DB, dst interface{}) error {
 	err := db.First(dst).Error
@@ -367,7 +382,9 @@ func (us *userGORM) InAgeRange(min, max uint) []User {
 	us.db.Where("age BETWEEN ? AND ?", min, max).Find(&users)
 	return users
 }
+
 type userGORM struct {
 	db *gorm.DB
 }
+
 var _ UserDB = &userGORM{}

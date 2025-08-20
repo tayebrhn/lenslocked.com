@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/static/bootstrap/bootstrap.min.css">
   </head>
   <body>
-    {{template "navbar"}}
+    {{template "navbar"  .}}
     <div class="container">
       {{if .Alert}}
         {{template "alert" .Alert}}

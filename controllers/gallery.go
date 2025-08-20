@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	// "errors"
 	"fmt"
 	"log"
@@ -14,7 +15,9 @@ import (
 )
 
 const (
-	ShowGallery = "show_gallery"
+	IndexGalleries = "index_galleries"
+	EditGalleries  = "edit_galleries"
+	ShowGallery    = "show_gallery"
 )
 
 func NewGalleries(gs models.GalleryService, router *mux.Router) *Galleries {
@@ -52,7 +55,7 @@ func (g *Galleries) Index(wr http.ResponseWriter, req *http.Request) {
 	}
 	var vd views.Data
 	vd.Yield = galleries
-	g.IndexView.Render(wr, vd)
+	g.IndexView.Render(wr, req, vd)
 }
 
 func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
@@ -63,7 +66,7 @@ func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
 	user := context.User(req.Context())
 
 	if gallery.ID != user.ID {
-		http.Error(wr, "You do not have permision to edit", http.StatusForbidden)
+		http.Error(wr, "You do not have permission to edit", http.StatusForbidden)
 		return
 	}
 	var vd views.Data
@@ -71,10 +74,16 @@ func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		vd.SetAlert(err)
 		vd.Yield = gallery
-		g.EditView.Render(wr, vd)
+		g.EditView.Render(wr, req, vd)
 		return
 	}
-	fmt.Fprintln(wr, "Succesfully deleted")
+
+	url, err := g.router.Get(IndexGalleries).URL()
+	if err != nil {
+		http.Redirect(wr, req, "/", http.StatusFound)
+		return
+	}
+	http.Redirect(wr, req, url.Path, http.StatusFound)
 }
 
 func (g *Galleries) Create(wr http.ResponseWriter, req *http.Request) {
@@ -84,7 +93,7 @@ func (g *Galleries) Create(wr http.ResponseWriter, req *http.Request) {
 	err := parseForm(req, &form)
 	if err != nil {
 		vd.SetAlert(err)
-		g.New.Render(wr, vd)
+		g.New.Render(wr, req, vd)
 		return
 	}
 
@@ -97,11 +106,11 @@ func (g *Galleries) Create(wr http.ResponseWriter, req *http.Request) {
 	err = g.gs.Create(&gallery)
 	if err != nil {
 		vd.SetAlert(err)
-		g.New.Render(wr, vd)
+		g.New.Render(wr, req, vd)
 		return
 	}
 
-	url, err := g.router.Get(ShowGallery).URL("id", strconv.Itoa(int(gallery.ID)))
+	url, err := g.router.Get(EditGalleries).URL("id", strconv.Itoa(int(gallery.ID)))
 	if err != nil {
 		http.Redirect(wr, req, "/", http.StatusFound)
 		return
@@ -116,7 +125,7 @@ func (g *Galleries) Show(wr http.ResponseWriter, req *http.Request) {
 	}
 	var vd views.Data
 	vd.Yield = gallery
-	g.ShowView.Render(wr, vd)
+	g.ShowView.Render(wr, req, vd)
 }
 
 func (g *Galleries) Edit(wr http.ResponseWriter, req *http.Request) {
@@ -126,13 +135,13 @@ func (g *Galleries) Edit(wr http.ResponseWriter, req *http.Request) {
 	}
 	user := context.User(req.Context())
 	if gallery.UserID != user.ID {
-		http.Error(wr, "You do not have permision to edit "+
+		http.Error(wr, "You do not have permission to edit "+
 			"this gallery", http.StatusForbidden)
 		return
 	}
 	var vd views.Data
 	vd.Yield = gallery
-	g.EditView.Render(wr, vd)
+	g.EditView.Render(wr, req, vd)
 }
 
 func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
@@ -151,7 +160,7 @@ func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
 	err = parseForm(req, &form)
 	if err != nil {
 		vd.SetAlert(err)
-		g.EditView.Render(wr, vd)
+		g.EditView.Render(wr, req, vd)
 		return
 	}
 	gallery.Title = form.Title
@@ -165,7 +174,7 @@ func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
 			Message: "Gallery updated successfully",
 		}
 	}
-	g.EditView.Render(wr, vd)
+	g.EditView.Render(wr, req, vd)
 }
 
 func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*models.Gallery, error) {
@@ -188,8 +197,8 @@ func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*m
 	gallery, err := g.gs.ByID(uint(id))
 
 	if err != nil {
-		switch err {
-		case models.ErrNotFound:
+		switch {
+		case errors.Is(err, models.ErrNotFound):
 			http.Error(wr, "Gallery not found", http.StatusNotFound)
 		default:
 			http.Error(wr, "Whoops! Something went wrong.", http.StatusInternalServerError)

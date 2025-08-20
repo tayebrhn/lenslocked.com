@@ -9,26 +9,24 @@ import (
 type Services struct {
 	User    UserService
 	Gallery GalleryService
-	db *gorm.DB
+	db      *gorm.DB
 }
 
 func (s *Services) Close() error {
 	return s.db.Close()
 }
 
-
 func (s *Services) AutoMigrate() error {
-	return s.db.AutoMigrate(&User{},&Gallery{}).Error
+	return s.db.AutoMigrate(&User{}, &Gallery{}).Error
 }
 
-func (us *Services) DestructiveReset() error {
-	err := us.db.DropTableIfExists(&User{},&Gallery{}).Error
+func (s *Services) DestructiveReset() error {
+	err := s.db.DropTableIfExists(&User{}, &Gallery{}).Error
 	if err != nil {
 		return err
 	}
-	return us.AutoMigrate()
+	return s.AutoMigrate()
 }
-
 
 func NewServices(connInfo string) (*Services, error) {
 	db, err := gorm.Open("postgres", connInfo)
@@ -37,8 +35,8 @@ func NewServices(connInfo string) (*Services, error) {
 	}
 	db.LogMode(true)
 	return &Services{
-		User: NewUserService(db),
+		User:    NewUserService(db),
 		Gallery: NewGalleryService(db),
-		db: db,
+		db:      db,
 	}, nil
 }

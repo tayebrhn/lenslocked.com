@@ -1,7 +1,8 @@
 package views
 
 import (
-	"log"
+	"errors"
+	"lenslocked.com/models"
 )
 
 const (
@@ -20,11 +21,9 @@ type PublicError interface {
 
 func (d *Data) SetAlert(err error) {
 	var msg string
-	if pErr, ok := err.(PublicError); ok {
+	var pErr PublicError
+	if errors.As(err, &pErr) {
 		msg = pErr.Public()
-	} else {
-		log.Println("Public", err)
-		msg = AlertMsgGeneric
 	}
 
 	d.Alert = &Alert{
@@ -35,13 +34,14 @@ func (d *Data) SetAlert(err error) {
 
 func (d *Data) AlertError(msg string) {
 	d.Alert = &Alert{
-		Level: AlertLvlError,
+		Level:   AlertLvlError,
 		Message: msg,
 	}
 }
 
 type Data struct {
 	Alert *Alert
+	User  *models.User
 	Yield interface{}
 }
 

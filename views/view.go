@@ -1,19 +1,18 @@
 package views
 
 import (
-	// "fmt"
 	"bytes"
 	"html/template"
 	"io"
+	"lenslocked.com/context"
 	"net/http"
 	"path/filepath"
-	// "os"
 )
 
 var (
-	LayoutDir   string = "views/layouts/"
-	TemplateDir string = "views/"
-	TemplateExt string = ".gohtml"
+	LayoutDir   = "views/layouts/"
+	TemplateDir = "views/"
+	TemplateExt = ".gohtml"
 )
 
 func addTemplatePath(files []string) {
@@ -36,26 +35,35 @@ func layoutFiles() []string {
 	return files
 }
 
-func (v *View) Render(wr http.ResponseWriter, data interface{}) {
+func (v *View) Render(wr http.ResponseWriter, req *http.Request, data interface{}) {
+	var vd Data
 	wr.Header().Set("Content-Type", "text/html")
-	switch data.(type) {
+	switch d := data.(type) {
 	case Data:
+		vd = d
 	default:
-		data = Data{
+		vd = Data{
 			Yield: data,
 		}
 	}
+
+	vd.User = context.User(req.Context())
+
 	var buf bytes.Buffer
-	err := v.Template.ExecuteTemplate(&buf, v.Layout, data)
+	err := v.Template.ExecuteTemplate(&buf, v.Layout, vd)
 	if err != nil {
 		http.Error(wr, "Something went wrong.", http.StatusInternalServerError)
 		return
 	}
-	io.Copy(wr, &buf)
+	_, err = io.Copy(wr, &buf)
+	if err != nil {
+		http.Error(wr, "Something went wrong.", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (v *View) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	v.Render(res, nil)
+	v.Render(res, req, nil)
 }
 
 func NewView(layout string, files ...string) *View {

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func (u *User) New(wr http.ResponseWriter, req *http.Request) {
-	u.NewView.Render(wr, nil)
+	u.NewView.Render(wr, req, nil)
 }
 
 func (u *User) Create(wr http.ResponseWriter, req *http.Request) {
@@ -18,7 +19,7 @@ func (u *User) Create(wr http.ResponseWriter, req *http.Request) {
 	var form SignUpForm
 	if err := parseForm(req, &form); err != nil {
 		vd.SetAlert(err)
-		u.NewView.Render(wr, vd)
+		u.NewView.Render(wr, req, vd)
 		return
 	}
 	user := models.User{
@@ -29,7 +30,7 @@ func (u *User) Create(wr http.ResponseWriter, req *http.Request) {
 	}
 	if err := u.us.Create(&user); err != nil {
 		vd.SetAlert(err)
-		u.NewView.Render(wr, vd)
+		u.NewView.Render(wr, req, vd)
 		return
 	}
 	err := u.signIn(wr, &user)
@@ -37,7 +38,7 @@ func (u *User) Create(wr http.ResponseWriter, req *http.Request) {
 		http.Redirect(wr, req, "/login", http.StatusFound)
 		return
 	}
-	http.Redirect(wr, req, "/cookietest", http.StatusFound)
+	http.Redirect(wr, req, "/galleries", http.StatusFound)
 }
 
 func (u *User) Login(wr http.ResponseWriter, req *http.Request) {
@@ -45,29 +46,29 @@ func (u *User) Login(wr http.ResponseWriter, req *http.Request) {
 	var form loginForm
 	if err := parseForm(req, &form); err != nil {
 		vd.SetAlert(err)
-		u.LoginView.Render(wr, vd)
+		u.LoginView.Render(wr, req, vd)
 		return
 	}
 	user, err := u.us.Authenticate(form.Email, form.Password)
 	if err != nil {
-		switch err {
-		case models.ErrNotFound:
+		switch {
+		case errors.Is(err, models.ErrNotFound):
 			vd.AlertError("No user exists with that email address")
-		case models.ErrPasswordIncorrect:
+		case errors.Is(err, models.ErrPasswordIncorrect):
 			vd.SetAlert(err)
 		default:
 			vd.SetAlert(err)
 		}
-		u.LoginView.Render(wr, vd)
+		u.LoginView.Render(wr, req, vd)
 		return
 	}
 	err = u.signIn(wr, user)
 	if err != nil {
 		vd.SetAlert(err)
-		u.LoginView.Render(wr, vd)
+		u.LoginView.Render(wr, req, vd)
 		return
 	}
-	http.Redirect(wr, req, "/cookietest", http.StatusFound)
+	http.Redirect(wr, req, "/galleries", http.StatusFound)
 }
 
 func (u *User) CookieTest(wr http.ResponseWriter, req *http.Request) {
@@ -77,7 +78,10 @@ func (u *User) CookieTest(wr http.ResponseWriter, req *http.Request) {
 		return
 	}
 	user, _ := u.us.ByRemember(cookie.Value)
-	fmt.Fprintln(wr, user)
+	_, err = fmt.Fprintln(wr, user)
+	if err != nil {
+		return
+	}
 }
 
 func (u *User) signIn(wr http.ResponseWriter, user *models.User) error {
