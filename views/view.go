@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"lenslocked.com/context"
+	"log"
 	"net/http"
 	"path/filepath"
 )
@@ -53,6 +54,7 @@ func (v *View) Render(wr http.ResponseWriter, req *http.Request, data interface{
 	err := v.Template.ExecuteTemplate(&buf, v.Layout, vd)
 	if err != nil {
 		http.Error(wr, "Something went wrong.", http.StatusInternalServerError)
+		log.Println("VIEW->Render()", err.Error())
 		return
 	}
 	_, err = io.Copy(wr, &buf)

@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"errors"
-	// "errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -18,6 +21,10 @@ const (
 	IndexGalleries = "index_galleries"
 	EditGalleries  = "edit_galleries"
 	ShowGallery    = "show_gallery"
+)
+
+const (
+	maxMultipartMem = 1 << 20
 )
 
 func NewGalleries(gs models.GalleryService, router *mux.Router) *Galleries {
@@ -175,6 +182,66 @@ func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
 		}
 	}
 	g.EditView.Render(wr, req, vd)
+}
+
+func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		return
+	}
+	user := context.User(r.Context())
+	if gallery.UserID != user.ID {
+		http.Error(w, "Gallery not found", http.StatusNotFound)
+		return
+	}
+	var vd views.Data
+	vd.Yield = gallery
+	err = r.ParseMultipartForm(maxMultipartMem)
+
+	galleryPath := filepath.Join("images", "galleries", fmt.Sprintf("%v", gallery.ID))
+
+	err = os.MkdirAll(galleryPath, 0755)
+	if err != nil {
+		vd.SetAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
+	}
+	files := r.MultipartForm.File["images"]
+
+	for _, f := range files {
+		file, err := f.Open()
+		if err != nil {
+			vd.SetAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
+		}
+		defer func(file multipart.File) {
+			err := file.Close()
+			if err != nil {
+				return
+			}
+		}(file)
+
+		dst, err := os.Create(filepath.Join(galleryPath, f.Filename))
+		defer func(dst *os.File) {
+			err := dst.Close()
+			if err != nil {
+				return
+			}
+		}(dst)
+		_, err = io.Copy(dst, file)
+		if err != nil {
+			vd.SetAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
+		}
+	}
+
+	vd.Alert = &views.Alert{
+		Level:   views.AlertLvlSuccess,
+		Message: "Image successfully uploaded!",
+	}
+	g.EditView.Render(w, r, vd)
 }
 
 func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*models.Gallery, error) {
