@@ -1,10 +1,19 @@
 {{define "yield"}}
 <div class="row">
   <div class="col-md-12">
-    <h1>
-      {{.Title}}
-    </h1>
-    <p>Images coming soon...</p>
+    <h1>{{.Title}}</h1>
   </div>
 </div>
-{{ end }}
+
+<div class="row">
+  {{range .ImageSplitN 6}}
+  <div class="col-md-2 mb-3">
+    {{range .}}
+    <a href="{{.Path}}">
+      <img src="{{.Path}}" class="img-thumbnail w-100" alt="gallery image">
+    </a>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

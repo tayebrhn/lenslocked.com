@@ -6,12 +6,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type Services struct {
-	User    UserService
-	Gallery GalleryService
-	db      *gorm.DB
-}
-
 func (s *Services) Close() error {
 	return s.db.Close()
 }
@@ -37,6 +31,14 @@ func NewServices(connInfo string) (*Services, error) {
 	return &Services{
 		User:    NewUserService(db),
 		Gallery: NewGalleryService(db),
+		Image:   NewImageService(),
 		db:      db,
 	}, nil
+}
+
+type Services struct {
+	User    UserService
+	Gallery GalleryService
+	Image   ImageService
+	db      *gorm.DB
 }

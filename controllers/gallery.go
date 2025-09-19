@@ -3,12 +3,8 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -27,13 +23,14 @@ const (
 	maxMultipartMem = 1 << 20
 )
 
-func NewGalleries(gs models.GalleryService, router *mux.Router) *Galleries {
+func NewGalleries(gs models.GalleryService, is models.ImageService, router *mux.Router) *Galleries {
 	return &Galleries{
 		ShowView:  views.NewView("bootstrap", "gallery/show"),
 		New:       views.NewView("bootstrap", "gallery/new"),
 		EditView:  views.NewView("bootstrap", "gallery/edit"),
 		IndexView: views.NewView("bootstrap", "gallery/index"),
 		gs:        gs,
+		is:        is,
 		router:    router,
 	}
 }
@@ -44,6 +41,7 @@ type Galleries struct {
 	EditView  *views.View
 	IndexView *views.View
 	gs        models.GalleryService
+	is        models.ImageService
 	router    *mux.Router
 }
 
@@ -66,7 +64,7 @@ func (g *Galleries) Index(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (g *Galleries) Delete(wr http.ResponseWriter, req *http.Request) {
-	gallery, err := g.galleriesByID(wr, req)
+	gallery, err := g.galleryByID(wr, req)
 	if err != nil {
 		return
 	}
@@ -126,7 +124,7 @@ func (g *Galleries) Create(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (g *Galleries) Show(wr http.ResponseWriter, req *http.Request) {
-	gallery, err := g.galleriesByID(wr, req)
+	gallery, err := g.galleryByID(wr, req)
 	if err != nil {
 		return
 	}
@@ -136,7 +134,7 @@ func (g *Galleries) Show(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (g *Galleries) Edit(wr http.ResponseWriter, req *http.Request) {
-	gallery, err := g.galleriesByID(wr, req)
+	gallery, err := g.galleryByID(wr, req)
 	if err != nil {
 		return
 	}
@@ -152,7 +150,7 @@ func (g *Galleries) Edit(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
-	gallery, err := g.galleriesByID(wr, req)
+	gallery, err := g.galleryByID(wr, req)
 	if err != nil {
 		return
 	}
@@ -184,8 +182,43 @@ func (g *Galleries) Update(wr http.ResponseWriter, req *http.Request) {
 	g.EditView.Render(wr, req, vd)
 }
 
+func (g *Galleries) ImageDelete(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+	user := context.User(r.Context())
+	if gallery.UserID != user.ID {
+		http.Error(w, "You do not have permission to edit this gallery or image", http.StatusForbidden)
+		return
+	}
+
+	filename := mux.Vars(r)["filename"]
+println("ImageDelete->",filename)
+	i := models.Image{
+		Filename:  filename,
+		GalleryID: gallery.ID,
+	}
+
+	err = g.is.Delete(&i)
+	if err != nil {
+		var vd views.Data
+		vd.Yield = gallery
+		vd.SetAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
+	}
+
+	url, err := g.router.Get(EditGalleries).URL("id", fmt.Sprintf("%v", gallery.ID))
+	if err != nil {
+		http.Redirect(w,r,"/galleries",http.StatusFound)
+		return 
+	}
+	http.Redirect(w,r,url.Path,http.StatusFound)
+}
+
 func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
-	gallery, err := g.galleriesByID(w, r)
+	gallery, err := g.galleryByID(w, r)
 	if err != nil {
 		return
 	}
@@ -197,10 +230,10 @@ func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 	vd.Yield = gallery
 	err = r.ParseMultipartForm(maxMultipartMem)
-
-	galleryPath := filepath.Join("images", "galleries", fmt.Sprintf("%v", gallery.ID))
-
-	err = os.MkdirAll(galleryPath, 0755)
+	//
+	//galleryPath := filepath.Join("images", "galleries", fmt.Sprintf("%v", gallery.ID))
+	//
+	//err = os.MkdirAll(galleryPath, 0755)
 	if err != nil {
 		vd.SetAlert(err)
 		g.EditView.Render(w, r, vd)
@@ -221,15 +254,7 @@ func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}(file)
-
-		dst, err := os.Create(filepath.Join(galleryPath, f.Filename))
-		defer func(dst *os.File) {
-			err := dst.Close()
-			if err != nil {
-				return
-			}
-		}(dst)
-		_, err = io.Copy(dst, file)
+		err = g.is.Create(gallery.ID, file, f.Filename)
 		if err != nil {
 			vd.SetAlert(err)
 			g.EditView.Render(w, r, vd)
@@ -244,7 +269,7 @@ func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
 	g.EditView.Render(w, r, vd)
 }
 
-func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*models.Gallery, error) {
+func (g *Galleries) galleryByID(wr http.ResponseWriter, req *http.Request) (*models.Gallery, error) {
 	vars := mux.Vars(req)
 	idStr := vars["id"]
 
@@ -253,13 +278,6 @@ func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*m
 		http.Error(wr, "Invalid gallery ID", http.StatusNotFound)
 		return nil, err
 	}
-
-	fmt.Printf("INSIDE->galleriesByID g.gs: %#v\n", g.gs)
-	println()
-	if g.gs == nil {
-		log.Fatal("g.gs is nil!")
-	}
-	println()
 
 	gallery, err := g.gs.ByID(uint(id))
 
@@ -272,6 +290,8 @@ func (g *Galleries) galleriesByID(wr http.ResponseWriter, req *http.Request) (*m
 		}
 		return nil, err
 	}
+	images, _ := g.is.ByGalleryID(gallery.ID)
+	gallery.Images = images
 	return gallery, nil
 }
 

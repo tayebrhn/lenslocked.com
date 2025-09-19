@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	ErrUserIDRequired modelError = "model: user ID is requered"
-	ErrTitleRequierd  modelError = "model: title is requered"
+	ErrUserIDRequired modelError = "model: user ID is required"
+	ErrTitleRequired  modelError = "model: title is required"
 )
 
 type galleryFunc func(*Gallery) error
@@ -20,10 +20,25 @@ func runGalleryValFns(gallery *Gallery, fns ...galleryFunc) error {
 	return nil
 }
 
+func (g *Gallery) ImageSplitN(n int) [][]Image {
+	ret := make([][]Image, n)
+
+	for i := 0; i < n; i++ {
+		ret[i] = make([]Image, 0)
+	}
+	for i, img := range g.Images {
+		bucket := i % n
+		ret[bucket] = append(ret[bucket], img)
+
+	}
+	return ret
+}
+
 type Gallery struct {
 	gorm.Model
-	UserID uint   `gorm:"not_null;index"`
-	Title  string `gorm:"not_null"`
+	UserID uint    `gorm:"not_null;index"`
+	Title  string  `gorm:"not_null"`
+	Images []Image `gorm:"-"`
 }
 
 type GalleryDB interface {
@@ -71,7 +86,7 @@ func (gv *galleryValidator) userIDReq(g *Gallery) error {
 
 func (gv *galleryValidator) titleReq(g *Gallery) error {
 	if g.Title == "" {
-		return ErrTitleRequierd
+		return ErrTitleRequired
 	}
 	return nil
 }

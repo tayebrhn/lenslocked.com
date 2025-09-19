@@ -27,6 +27,7 @@ const (
 	dbname   = "lenslocked_dev"
 )
 
+// run
 func main() {
 	router := mux.NewRouter()
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
@@ -42,14 +43,14 @@ func main() {
 		}
 	}(services)
 
-	if err := services.DestructiveReset(); err != nil {
-		panic(err)
-	}
+	// if err := services.DestructiveReset(); err != nil {
+	// 	panic(err)
+	// }
 
 	//init controllers
 	staticController := controllers.NewStatic()
 	userController := controllers.NewUser(services.User)
-	galleryController := controllers.NewGalleries(services.Gallery, router)
+	galleryController := controllers.NewGalleries(services.Gallery, services.Image, router)
 
 	//applying middlewares
 	userMw := middleware.User{
@@ -64,9 +65,11 @@ func main() {
 
 	//setting up static file resourses
 	fileServer := http.FileServer(http.Dir("./static"))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fileServer))
+	imageHandler := http.FileServer(http.Dir("./images/"))
+	router.PathPrefix("/images/").Handler(http.StripPrefix("/images/", imageHandler))
 
 	//routes
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fileServer))
 	router.Handle("/", staticController.Home).Methods("GET")
 	router.Handle("/contact", staticController.Contact).Methods("GET")
 	router.Handle("/faq", staticController.FAQ).Methods("GET")
@@ -89,8 +92,8 @@ func main() {
 	router.HandleFunc("/galleries/{id:[0-9]+}/images", reqUserMw.ApplyFn(galleryController.
 		ImageUpload)).Methods("POST")
 	router.HandleFunc("/cookietest", userController.CookieTest).Methods("GET")
-
-	fmt.Println("Starting server on :3000...")
+	router.HandleFunc("/galleries/{id:[0-9]+}/images/{filename}/delete", reqUserMw.ApplyFn(galleryController.ImageDelete)).Methods("POST")
+	fmt.Println("Started server on :3000...")
 	err = http.ListenAndServe(":3000", userMw.Apply(router))
 	if err != nil {
 		return
